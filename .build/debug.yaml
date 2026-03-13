@@ -1,0 +1,81 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "Kai-arm64-apple-macosx26.0-debug.exe": ["<Kai-arm64-apple-macosx26.0-debug.exe>"]
+  "Kai-arm64-apple-macosx26.0-debug.module": ["<Kai-arm64-apple-macosx26.0-debug.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "main": ["<Kai-arm64-apple-macosx26.0-debug.exe>","<Kai-arm64-apple-macosx26.0-debug.module>"]
+  "test": ["<Kai-arm64-apple-macosx26.0-debug.exe>","<Kai-arm64-apple-macosx26.0-debug.module>"]
+default: "main"
+nodes:
+  "/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai":
+    is-mutated: true
+commands:
+  "/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai-entitlement.plist":
+    tool: write-auxiliary-file
+    inputs: ["<entitlement-plist>","<com.apple.security.get-task-allow>"]
+    outputs: ["/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai-entitlement.plist"]
+    description: "Write auxiliary file /Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai-entitlement.plist"
+
+  "/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/AccessibilityReader.swift","/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/AppDelegate.swift","/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/ExplanationPanel.swift","/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/HotkeyManager.swift","/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/OllamaClient.swift","/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/main.swift"]
+    outputs: ["/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/sources"]
+    description: "Write auxiliary file /Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/sources"
+
+  "/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/AccessibilityReader.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/AppDelegate.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/ExplanationPanel.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/HotkeyManager.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/OllamaClient.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/main.swift.o"]
+    outputs: ["/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.product/Objects.LinkFileList"
+
+  "/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/swift-version--3DE0F60A382D169D.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Users/kopenshaw@column.com/Library/Developer/Toolchains/swift-6.2.4-RELEASE.xctoolchain/usr/bin/swiftc"]
+    outputs: ["/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/swift-version--3DE0F60A382D169D.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/swift-version--3DE0F60A382D169D.txt"
+
+  "<Kai-arm64-apple-macosx26.0-debug.exe>":
+    tool: phony
+    inputs: ["<Kai-arm64-apple-macosx26.0-debug.exe-CodeSigning>"]
+    outputs: ["<Kai-arm64-apple-macosx26.0-debug.exe>"]
+
+  "<Kai-arm64-apple-macosx26.0-debug.module>":
+    tool: phony
+    inputs: ["/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/AccessibilityReader.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/AppDelegate.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/ExplanationPanel.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/HotkeyManager.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/OllamaClient.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/main.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Modules/Kai.swiftmodule"]
+    outputs: ["<Kai-arm64-apple-macosx26.0-debug.module>"]
+
+  "C.Kai-arm64-apple-macosx26.0-debug.exe":
+    tool: shell
+    inputs: ["/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/AccessibilityReader.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/AppDelegate.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/ExplanationPanel.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/HotkeyManager.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/OllamaClient.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/main.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.product/Objects.LinkFileList"]
+    outputs: ["/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/Kai"
+    args: ["/Users/kopenshaw@column.com/Library/Developer/Toolchains/swift-6.2.4-RELEASE.xctoolchain/usr/bin/swiftc","-L","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug","-o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai","-module-name","Kai","-Xlinker","-no_warn_duplicate_libraries","-emit-executable","-Xlinker","-alias","-Xlinker","_Kai_main","-Xlinker","_main","-Xlinker","-rpath","-Xlinker","@loader_path","@/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.product/Objects.LinkFileList","-Xlinker","-rpath","-Xlinker","/Users/kopenshaw@column.com/Library/Developer/Toolchains/swift-6.2.4-RELEASE.xctoolchain/usr/lib/swift-6.2/macosx","-target","arm64-apple-macosx14.0","-Xlinker","-add_ast_path","-Xlinker","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Modules/Kai.swiftmodule","-I","/Users/kopenshaw@column.com/Library/Developer/Toolchains/swift-6.2.4-RELEASE.xctoolchain/usr/lib/swift/macosx/testing","-L","/Users/kopenshaw@column.com/Library/Developer/Toolchains/swift-6.2.4-RELEASE.xctoolchain/usr/lib/swift/macosx/testing","-plugin-path","/Users/kopenshaw@column.com/Library/Developer/Toolchains/swift-6.2.4-RELEASE.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g"]
+
+  "C.Kai-arm64-apple-macosx26.0-debug.exe-entitlements":
+    tool: shell
+    inputs: ["/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai-entitlement.plist"]
+    outputs: ["<Kai-arm64-apple-macosx26.0-debug.exe-CodeSigning>"]
+    description: "Applying debug entitlements to ./.build/arm64-apple-macosx/debug/Kai"
+    args: ["codesign","--force","--sign","-","--entitlements","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai-entitlement.plist","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai"]
+
+  "C.Kai-arm64-apple-macosx26.0-debug.module":
+    tool: shell
+    inputs: ["/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/AccessibilityReader.swift","/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/AppDelegate.swift","/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/ExplanationPanel.swift","/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/HotkeyManager.swift","/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/OllamaClient.swift","/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/main.swift","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/swift-version--3DE0F60A382D169D.txt","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/sources"]
+    outputs: ["/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/AccessibilityReader.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/AppDelegate.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/ExplanationPanel.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/HotkeyManager.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/OllamaClient.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/main.swift.o","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Modules/Kai.swiftmodule"]
+    description: "Compiling Swift Module 'Kai' (6 sources)"
+    args: ["/Users/kopenshaw@column.com/Library/Developer/Toolchains/swift-6.2.4-RELEASE.xctoolchain/usr/bin/swiftc","-module-name","Kai","-emit-dependencies","-emit-module","-emit-module-path","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Modules/Kai.swiftmodule","-output-file-map","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/output-file-map.json","-incremental","-c","@/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Kai.build/sources","-I","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j11","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/kopenshaw@column.com/dev/repos/kai/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-Xfrontend","-entry-point-function-name","-Xfrontend","Kai_main","-swift-version","5","-I","/Users/kopenshaw@column.com/Library/Developer/Toolchains/swift-6.2.4-RELEASE.xctoolchain/usr/lib/swift/macosx/testing","-L","/Users/kopenshaw@column.com/Library/Developer/Toolchains/swift-6.2.4-RELEASE.xctoolchain/usr/lib/swift/macosx/testing","-plugin-path","/Users/kopenshaw@column.com/Library/Developer/Toolchains/swift-6.2.4-RELEASE.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g","-Xcc","-isysroot","-Xcc","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-Xcc","-fPIC","-Xcc","-g","-package-name","kai"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/kopenshaw@column.com/dev/repos/kai/Sources/Kai/","/Users/kopenshaw@column.com/dev/repos/kai/Package.swift","/Users/kopenshaw@column.com/dev/repos/kai/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+
