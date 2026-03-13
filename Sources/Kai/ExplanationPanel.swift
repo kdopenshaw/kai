@@ -4,17 +4,17 @@ final class ExplanationPanel: NSObject {
     private var panel: NSPanel!
     private var textView: NSTextView!
 
-    // Dracula palette
-    private static let bg        = NSColor(red: 0.157, green: 0.165, blue: 0.212, alpha: 0.92)
-    private static let fg        = NSColor(red: 0.973, green: 0.973, blue: 0.949, alpha: 1.0)
-    private static let comment   = NSColor(red: 0.384, green: 0.447, blue: 0.643, alpha: 1.0)
-    private static let cyan      = NSColor(red: 0.545, green: 0.914, blue: 0.992, alpha: 1.0)
-    private static let green     = NSColor(red: 0.314, green: 0.980, blue: 0.482, alpha: 1.0)
-    private static let orange    = NSColor(red: 1.000, green: 0.722, blue: 0.424, alpha: 1.0)
-    private static let pink      = NSColor(red: 1.000, green: 0.475, blue: 0.776, alpha: 1.0)
-    private static let purple    = NSColor(red: 0.741, green: 0.576, blue: 0.976, alpha: 1.0)
-    private static let yellow    = NSColor(red: 0.945, green: 0.980, blue: 0.549, alpha: 1.0)
-    private static let selection = NSColor(red: 0.263, green: 0.278, blue: 0.353, alpha: 1.0)
+    // Xcode Dark palette
+    private static let bg        = NSColor(red: 0.118, green: 0.118, blue: 0.118, alpha: 0.85)
+    private static let fg        = NSColor(red: 0.871, green: 0.871, blue: 0.871, alpha: 1.0)
+    private static let comment   = NSColor(red: 0.424, green: 0.475, blue: 0.529, alpha: 1.0)
+    private static let cyan      = NSColor(red: 0.404, green: 0.718, blue: 0.812, alpha: 1.0)
+    private static let green     = NSColor(red: 0.514, green: 0.753, blue: 0.404, alpha: 1.0)
+    private static let orange    = NSColor(red: 0.835, green: 0.557, blue: 0.337, alpha: 1.0)
+    private static let pink      = NSColor(red: 0.812, green: 0.400, blue: 0.600, alpha: 1.0)
+    private static let purple    = NSColor(red: 0.631, green: 0.467, blue: 0.812, alpha: 1.0)
+    private static let yellow    = NSColor(red: 0.843, green: 0.753, blue: 0.384, alpha: 1.0)
+    private static let selection = NSColor(red: 0.200, green: 0.337, blue: 0.537, alpha: 1.0)
 
     override init() {
         super.init()
@@ -35,37 +35,41 @@ final class ExplanationPanel: NSObject {
 
         panel = NSPanel(
             contentRect: frame,
-            styleMask: [.nonactivatingPanel, .closable, .utilityWindow, .fullSizeContentView],
+            styleMask: [.nonactivatingPanel, .titled, .closable, .utilityWindow],
             backing: .buffered,
             defer: false
         )
         panel.level = .floating
         panel.isMovableByWindowBackground = true
-        panel.titlebarAppearsTransparent = true
-        panel.titleVisibility = .hidden
+        panel.title = "Kai"
         panel.isOpaque = false
-        panel.backgroundColor = Self.bg
-        panel.alphaValue = 1.0
+        panel.backgroundColor = .clear
         panel.animationBehavior = .utilityWindow
         panel.hasShadow = true
 
-        // Visual effect for subtle blur behind transparency
+        // Blur behind the transparent window
         let visualEffect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: width, height: height))
         visualEffect.material = .hudWindow
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
         visualEffect.autoresizingMask = [.width, .height]
 
+        // Tinted overlay for Xcode Dark color
+        let tint = NSView(frame: visualEffect.bounds)
+        tint.wantsLayer = true
+        tint.layer?.backgroundColor = Self.bg.cgColor
+        tint.autoresizingMask = [.width, .height]
+        visualEffect.addSubview(tint)
+
         let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: width, height: height))
         scrollView.hasVerticalScroller = true
         scrollView.autoresizingMask = [.width, .height]
         scrollView.drawsBackground = false
-        scrollView.scrollerStyle = .overlay
 
         textView = NSTextView(frame: scrollView.bounds)
         textView.isEditable = false
         textView.isSelectable = true
-        textView.textContainerInset = NSSize(width: 14, height: 14)
+        textView.textContainerInset = NSSize(width: 12, height: 12)
         textView.font = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
         textView.textColor = Self.fg
         textView.backgroundColor = .clear
@@ -77,14 +81,8 @@ final class ExplanationPanel: NSObject {
         ]
 
         scrollView.documentView = textView
-
         visualEffect.addSubview(scrollView)
         panel.contentView = visualEffect
-
-        // Rounded corners
-        panel.contentView?.wantsLayer = true
-        panel.contentView?.layer?.cornerRadius = 10
-        panel.contentView?.layer?.masksToBounds = true
 
         // Dismiss on Escape
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
