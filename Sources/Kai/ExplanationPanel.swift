@@ -1,8 +1,14 @@
 import AppKit
 
-final class ExplanationPanel: NSObject {
+final class ExplanationPanel: NSObject, NSTextFieldDelegate {
     private var panel: NSPanel!
     private var textView: NSTextView!
+    private var scrollView: NSScrollView!
+    private var inputField: NSTextField!
+    private var inputContainer: NSView!
+    private var visualEffect: NSVisualEffectView!
+    /// Called when user submits a follow-up question
+    var onFollowUp: ((String) -> Void)?
 
     // Xcode Dark palette
     private static let bg        = NSColor(red: 0.118, green: 0.118, blue: 0.118, alpha: 0.85)
@@ -15,6 +21,9 @@ final class ExplanationPanel: NSObject {
     private static let purple    = NSColor(red: 0.631, green: 0.467, blue: 0.812, alpha: 1.0)
     private static let yellow    = NSColor(red: 0.843, green: 0.753, blue: 0.384, alpha: 1.0)
     private static let selection = NSColor(red: 0.200, green: 0.337, blue: 0.537, alpha: 1.0)
+    private static let inputBg   = NSColor(red: 0.160, green: 0.160, blue: 0.160, alpha: 1.0)
+
+    private static let inputHeight: CGFloat = 36
 
     override init() {
         super.init()
@@ -48,7 +57,7 @@ final class ExplanationPanel: NSObject {
         panel.hasShadow = true
 
         // Blur behind the transparent window
-        let visualEffect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: width, height: height))
+        visualEffect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: width, height: height))
         visualEffect.material = .hudWindow
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
@@ -61,7 +70,7 @@ final class ExplanationPanel: NSObject {
         tint.autoresizingMask = [.width, .height]
         visualEffect.addSubview(tint)
 
-        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: width, height: height))
+        scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: width, height: height))
         scrollView.hasVerticalScroller = true
         scrollView.autoresizingMask = [.width, .height]
         scrollView.drawsBackground = false
@@ -82,32 +91,137 @@ final class ExplanationPanel: NSObject {
 
         scrollView.documentView = textView
         visualEffect.addSubview(scrollView)
+
+        // Input bar (always visible at bottom, dimmed until focused)
+        inputContainer = NSView(frame: NSRect(x: 0, y: 0, width: width, height: Self.inputHeight))
+        inputContainer.wantsLayer = true
+        inputContainer.layer?.backgroundColor = Self.inputBg.cgColor
+        inputContainer.alphaValue = 0.5
+
+        // Separator line
+        let separator = NSView(frame: NSRect(x: 0, y: Self.inputHeight - 1, width: width, height: 1))
+        separator.wantsLayer = true
+        separator.layer?.backgroundColor = NSColor(white: 0.3, alpha: 1.0).cgColor
+        separator.autoresizingMask = [.width]
+        inputContainer.addSubview(separator)
+
+        inputField = NSTextField(frame: NSRect(x: 10, y: 6, width: width - 20, height: 24))
+        inputField.isBordered = false
+        inputField.focusRingType = .none
+        inputField.font = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+        inputField.textColor = Self.fg
+        inputField.backgroundColor = .clear
+        inputField.drawsBackground = false
+        inputField.placeholderAttributedString = NSAttributedString(
+            string: "Ask a follow-up…",
+            attributes: [.foregroundColor: Self.comment, .font: NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)]
+        )
+        inputField.delegate = self
+        inputField.autoresizingMask = [.width]
+        inputContainer.addSubview(inputField)
+        inputContainer.autoresizingMask = [.width]
+
+        // Layout: scroll view above input bar
+        scrollView.frame = NSRect(x: 0, y: Self.inputHeight, width: width, height: height - Self.inputHeight)
+        inputContainer.frame = NSRect(x: 0, y: 0, width: width, height: Self.inputHeight)
+
+        visualEffect.addSubview(inputContainer)
         panel.contentView = visualEffect
 
-        // Dismiss on Escape
+        // Key handling — Escape closes panel
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.keyCode == 53 { // Escape
-                self?.close()
+            guard let self, self.panel.isVisible else { return event }
+
+            if event.keyCode == 53 {
+                self.close()
                 return nil
             }
+
             return event
         }
     }
 
     func show(text: String) {
         textView.textStorage?.setAttributedString(styledText(text))
+        inputField.stringValue = ""
+        inputContainer.alphaValue = 0.5
         panel.orderFront(nil)
+        // Focus the input field immediately so user can just start typing
+        panel.makeFirstResponder(inputField)
     }
 
     func update(text: String) {
         textView.textStorage?.setAttributedString(styledText(text))
     }
 
+    func appendToThread(question: String, answer: String) {
+        let mono = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+        let monoBold = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .bold)
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = 4
+        paragraphStyle.paragraphSpacing = 6
+
+        let current = NSMutableAttributedString(attributedString: textView.attributedString())
+
+        // Add separator + question
+        let separator = NSAttributedString(string: "\n\n", attributes: [.font: mono])
+        let qLabel = NSAttributedString(string: "▶ ", attributes: [
+            .foregroundColor: Self.cyan, .font: mono, .paragraphStyle: paragraphStyle
+        ])
+        let qText = NSAttributedString(string: question + "\n\n", attributes: [
+            .foregroundColor: Self.fg, .font: monoBold, .paragraphStyle: paragraphStyle
+        ])
+
+        current.append(separator)
+        current.append(qLabel)
+        current.append(qText)
+
+        // Add answer
+        current.append(styledText(answer))
+
+        textView.textStorage?.setAttributedString(current)
+        // Scroll to bottom
+        textView.scrollToEndOfDocument(nil)
+    }
+
     func close() {
         panel.orderOut(nil)
     }
 
-    /// Apply Dracula syntax highlighting to the response
+    // MARK: - NSTextFieldDelegate
+
+    func controlTextDidBeginEditing(_ obj: Notification) {
+        inputContainer.alphaValue = 1.0
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        if inputField.stringValue.isEmpty {
+            inputContainer.alphaValue = 0.5
+        }
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            // Enter pressed — send follow-up
+            let text = inputField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return true }
+            inputField.stringValue = ""
+            inputContainer.alphaValue = 0.5
+            onFollowUp?(text)
+            return true
+        }
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            // Escape in text field — unfocus
+            inputField.stringValue = ""
+            inputContainer.alphaValue = 0.5
+            panel.makeFirstResponder(nil)
+            return true
+        }
+        return false
+    }
+
+    // MARK: - Styling
+
     private func styledText(_ text: String) -> NSAttributedString {
         let mono = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
         let monoBold = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .bold)
@@ -130,7 +244,6 @@ final class ExplanationPanel: NSObject {
             let suffix = i < lines.count - 1 ? "\n" : ""
             let fullLine = line + suffix
 
-            // Code block fences
             if line.hasPrefix("```") {
                 inCodeBlock.toggle()
                 let attrs = baseAttrs.merging([.foregroundColor: Self.comment]) { _, new in new }
@@ -139,24 +252,20 @@ final class ExplanationPanel: NSObject {
             }
 
             if inCodeBlock {
-                // Inside code block — highlight syntax
                 result.append(highlightCode(fullLine, font: mono, boldFont: monoBold, style: paragraphStyle))
                 continue
             }
 
-            // Inline code: `...`
             if line.contains("`") {
                 result.append(highlightInlineCode(fullLine, baseAttrs: baseAttrs, font: mono))
                 continue
             }
 
-            // Bold text: **...**
             if line.contains("**") {
                 result.append(highlightBold(fullLine, baseAttrs: baseAttrs, boldFont: monoBold))
                 continue
             }
 
-            // Headings / bullet points
             if line.hasPrefix("# ") || line.hasPrefix("## ") || line.hasPrefix("### ") {
                 let attrs = baseAttrs.merging([
                     .foregroundColor: Self.pink,
@@ -175,7 +284,6 @@ final class ExplanationPanel: NSObject {
                 continue
             }
 
-            // Numbered lists
             if let range = line.range(of: #"^\d+[\.\)] "#, options: .regularExpression) {
                 let num = String(line[range])
                 let rest = String(line[range.upperBound...]) + suffix
@@ -185,7 +293,6 @@ final class ExplanationPanel: NSObject {
                 continue
             }
 
-            // Default
             result.append(NSAttributedString(string: fullLine, attributes: baseAttrs))
         }
 
@@ -200,7 +307,6 @@ final class ExplanationPanel: NSObject {
             .paragraphStyle: style
         ]
 
-        // Simple keyword-based highlighting
         let keywords = ["func", "let", "var", "if", "else", "guard", "return", "import",
                         "class", "struct", "enum", "protocol", "for", "while", "switch",
                         "case", "break", "continue", "def", "self", "true", "false", "nil",
@@ -211,17 +317,14 @@ final class ExplanationPanel: NSObject {
 
         let trimmed = line.trimmingCharacters(in: .whitespaces)
 
-        // Comments
         if trimmed.hasPrefix("//") || trimmed.hasPrefix("#") {
             let attrs = baseAttrs.merging([.foregroundColor: Self.comment]) { _, new in new }
             result.append(NSAttributedString(string: line, attributes: attrs))
             return result
         }
 
-        // Tokenize and color
         var remaining = line[line.startIndex...]
         while !remaining.isEmpty {
-            // String literals
             if remaining.first == "\"" || remaining.first == "'" {
                 let quote = remaining.first!
                 var end = remaining.index(after: remaining.startIndex)
@@ -241,7 +344,6 @@ final class ExplanationPanel: NSObject {
                 continue
             }
 
-            // Numbers
             if remaining.first?.isNumber == true {
                 var end = remaining.startIndex
                 while end < remaining.endIndex && (remaining[end].isNumber || remaining[end] == ".") {
@@ -254,7 +356,6 @@ final class ExplanationPanel: NSObject {
                 continue
             }
 
-            // Words (identifiers/keywords)
             if remaining.first?.isLetter == true || remaining.first == "_" {
                 var end = remaining.startIndex
                 while end < remaining.endIndex && (remaining[end].isLetter || remaining[end].isNumber || remaining[end] == "_") {
@@ -277,7 +378,6 @@ final class ExplanationPanel: NSObject {
                 continue
             }
 
-            // Operators and punctuation
             let ch = String(remaining.first!)
             let attrs = baseAttrs.merging([.foregroundColor: Self.fg]) { _, new in new }
             result.append(NSAttributedString(string: ch, attributes: attrs))
@@ -292,7 +392,6 @@ final class ExplanationPanel: NSObject {
         let parts = line.components(separatedBy: "`")
         for (i, part) in parts.enumerated() {
             if i % 2 == 1 {
-                // Inside backticks
                 let attrs = baseAttrs.merging([.foregroundColor: Self.green]) { _, new in new }
                 result.append(NSAttributedString(string: part, attributes: attrs))
             } else {

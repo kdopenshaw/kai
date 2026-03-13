@@ -66,12 +66,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel?.close()
         let p = ExplanationPanel()
         panel = p
+
+        p.onFollowUp = { [weak self] question in
+            self?.handleFollowUp(question: question, panel: p)
+        }
+
         p.show(text: "Thinking...")
 
         Task {
             let explanation = await self.ollama.explain(text)
             await MainActor.run {
                 p.update(text: explanation)
+            }
+        }
+    }
+
+    private func handleFollowUp(question: String, panel: ExplanationPanel) {
+        panel.appendToThread(question: question, answer: "Thinking...")
+
+        Task {
+            let answer = await self.ollama.followUp(question)
+            await MainActor.run {
+                // Rebuild the full thread display
+                let messages = self.ollama.messages
+                var display = ""
+                for msg in messages {
+                    guard let role = msg["role"], let content = msg["content"] else { continue }
+                    if role == "system" { continue }
+                    if role == "user" {
+                        if !display.isEmpty { display += "\n\n" }
+                        display += "▶ \(content)\n\n"
+                    } else if role == "assistant" {
+                        display += content
+                    }
+                }
+                panel.update(text: display)
             }
         }
     }
