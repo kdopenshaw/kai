@@ -11,7 +11,7 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
     var onFollowUp: ((String) -> Void)?
 
     // Xcode Dark palette
-    private static let bg        = NSColor(red: 0.118, green: 0.118, blue: 0.118, alpha: 0.85)
+    private static let bg        = NSColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 0.45)
     private static let fg        = NSColor(red: 0.871, green: 0.871, blue: 0.871, alpha: 1.0)
     private static let comment   = NSColor(red: 0.424, green: 0.475, blue: 0.529, alpha: 1.0)
     private static let cyan      = NSColor(red: 0.404, green: 0.718, blue: 0.812, alpha: 1.0)
@@ -21,7 +21,7 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
     private static let purple    = NSColor(red: 0.631, green: 0.467, blue: 0.812, alpha: 1.0)
     private static let yellow    = NSColor(red: 0.843, green: 0.753, blue: 0.384, alpha: 1.0)
     private static let selection = NSColor(red: 0.200, green: 0.337, blue: 0.537, alpha: 1.0)
-    private static let inputBg   = NSColor(red: 0.160, green: 0.160, blue: 0.160, alpha: 1.0)
+    private static let inputBg   = NSColor(red: 0.10, green: 0.10, blue: 0.12, alpha: 0.35)
 
     private static let inputHeight: CGFloat = 36
 
@@ -44,17 +44,22 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
 
         panel = NSPanel(
             contentRect: frame,
-            styleMask: [.nonactivatingPanel, .titled, .closable, .utilityWindow],
+            styleMask: [.nonactivatingPanel, .titled, .closable, .resizable, .fullSizeContentView, .utilityWindow],
             backing: .buffered,
             defer: false
         )
         panel.level = .floating
         panel.isMovableByWindowBackground = true
-        panel.title = "Kai"
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        panel.standardWindowButton(.closeButton)?.isHidden = true
+        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        panel.standardWindowButton(.zoomButton)?.isHidden = true
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.animationBehavior = .utilityWindow
         panel.hasShadow = true
+        panel.minSize = NSSize(width: 280, height: 160)
 
         // Blur behind the transparent window
         visualEffect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: width, height: height))
@@ -62,6 +67,11 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
         visualEffect.autoresizingMask = [.width, .height]
+        visualEffect.wantsLayer = true
+        visualEffect.layer?.cornerRadius = 16
+        visualEffect.layer?.masksToBounds = true
+        visualEffect.layer?.borderWidth = 0.5
+        visualEffect.layer?.borderColor = NSColor(white: 1.0, alpha: 0.15).cgColor
 
         // Tinted overlay for Xcode Dark color
         let tint = NSView(frame: visualEffect.bounds)
@@ -101,7 +111,7 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         // Separator line
         let separator = NSView(frame: NSRect(x: 0, y: Self.inputHeight - 1, width: width, height: 1))
         separator.wantsLayer = true
-        separator.layer?.backgroundColor = NSColor(white: 0.3, alpha: 1.0).cgColor
+        separator.layer?.backgroundColor = NSColor(white: 0.4, alpha: 0.3).cgColor
         separator.autoresizingMask = [.width]
         inputContainer.addSubview(separator)
 
