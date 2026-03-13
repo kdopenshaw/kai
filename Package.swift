@@ -8,6 +8,7 @@ let package = Package(
         .executableTarget(
             name: "Kai",
             path: "Sources/Kai",
+            resources: [.copy("Resources")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         )
     ]

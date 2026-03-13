@@ -39,9 +39,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupMenuBar() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: 28)
         if let button = statusItem.button {
-            button.title = "K"
+            let font = NSFont(name: "Apple Chancery", size: 18)
+                ?? NSFont(name: "Snell Roundhand", size: 18)
+                ?? NSFont.systemFont(ofSize: 16, weight: .medium)
+            let blue = NSColor(red: 0.2, green: 0.4, blue: 0.9, alpha: 1.0)
+            button.attributedTitle = NSAttributedString(
+                string: "x",
+                attributes: [.font: font, .foregroundColor: blue, .baselineOffset: -1]
+            )
         }
 
         let menu = NSMenu()
