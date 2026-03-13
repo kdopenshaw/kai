@@ -89,11 +89,15 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         textView.isEditable = false
         textView.isSelectable = true
         textView.textContainerInset = NSSize(width: 12, height: 12)
-        textView.font = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+        textView.font = NSFont.systemFont(ofSize: 12.5, weight: .regular)
         textView.textColor = Self.fg
         textView.backgroundColor = .clear
         textView.drawsBackground = false
         textView.autoresizingMask = [.width]
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.textContainer?.containerSize = NSSize(width: scrollView.contentSize.width, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainer?.widthTracksTextView = true
         textView.selectedTextAttributes = [
             .backgroundColor: Self.selection,
             .foregroundColor: Self.fg
@@ -118,13 +122,13 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         inputField = NSTextField(frame: NSRect(x: 10, y: 6, width: width - 20, height: 24))
         inputField.isBordered = false
         inputField.focusRingType = .none
-        inputField.font = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+        inputField.font = NSFont.systemFont(ofSize: 12.5, weight: .regular)
         inputField.textColor = Self.fg
         inputField.backgroundColor = .clear
         inputField.drawsBackground = false
         inputField.placeholderAttributedString = NSAttributedString(
             string: "Ask a follow-up…",
-            attributes: [.foregroundColor: Self.comment, .font: NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)]
+            attributes: [.foregroundColor: Self.comment, .font: NSFont.systemFont(ofSize: 12.5, weight: .regular)]
         )
         inputField.delegate = self
         inputField.autoresizingMask = [.width]
@@ -165,21 +169,21 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
     }
 
     func appendToThread(question: String, answer: String) {
-        let mono = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
-        let monoBold = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .bold)
+        let sf = NSFont.systemFont(ofSize: 12.5, weight: .regular)
+        let sfBold = NSFont.systemFont(ofSize: 12.5, weight: .semibold)
         let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.lineSpacing = 4
-        paragraphStyle.paragraphSpacing = 6
+        paragraphStyle.lineSpacing = 1
+        paragraphStyle.paragraphSpacing = 2
 
         let current = NSMutableAttributedString(attributedString: textView.attributedString())
 
         // Add separator + question
-        let separator = NSAttributedString(string: "\n\n", attributes: [.font: mono])
+        let separator = NSAttributedString(string: "\n\n", attributes: [.font: sf])
         let qLabel = NSAttributedString(string: "▶ ", attributes: [
-            .foregroundColor: Self.cyan, .font: mono, .paragraphStyle: paragraphStyle
+            .foregroundColor: Self.cyan, .font: sf, .paragraphStyle: paragraphStyle
         ])
         let qText = NSAttributedString(string: question + "\n\n", attributes: [
-            .foregroundColor: Self.fg, .font: monoBold, .paragraphStyle: paragraphStyle
+            .foregroundColor: Self.fg, .font: sfBold, .paragraphStyle: paragraphStyle
         ])
 
         current.append(separator)
@@ -233,16 +237,18 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
     // MARK: - Styling
 
     private func styledText(_ text: String) -> NSAttributedString {
-        let mono = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
-        let monoBold = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .bold)
+        let sf = NSFont.systemFont(ofSize: 12.5, weight: .regular)
+        let sfBold = NSFont.systemFont(ofSize: 12.5, weight: .semibold)
+        let mono = NSFont.monospacedSystemFont(ofSize: 11.5, weight: .regular)
+        let monoBold = NSFont.monospacedSystemFont(ofSize: 11.5, weight: .bold)
         let result = NSMutableAttributedString()
 
         let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.lineSpacing = 4
-        paragraphStyle.paragraphSpacing = 6
+        paragraphStyle.lineSpacing = 1
+        paragraphStyle.paragraphSpacing = 2
 
         let baseAttrs: [NSAttributedString.Key: Any] = [
-            .font: mono,
+            .font: sf,
             .foregroundColor: Self.fg,
             .paragraphStyle: paragraphStyle
         ]
@@ -252,48 +258,64 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
 
         for (i, line) in lines.enumerated() {
             let suffix = i < lines.count - 1 ? "\n" : ""
-            let fullLine = line + suffix
 
             if line.hasPrefix("```") {
                 inCodeBlock.toggle()
-                let attrs = baseAttrs.merging([.foregroundColor: Self.comment]) { _, new in new }
-                result.append(NSAttributedString(string: fullLine, attributes: attrs))
-                continue
+                continue  // hide the ``` delimiters
             }
 
             if inCodeBlock {
-                result.append(highlightCode(fullLine, font: mono, boldFont: monoBold, style: paragraphStyle))
+                result.append(highlightCode(line + suffix, font: mono, boldFont: monoBold, style: paragraphStyle))
                 continue
             }
 
-            if line.contains("`") {
-                result.append(highlightInlineCode(fullLine, baseAttrs: baseAttrs, font: mono))
-                continue
-            }
-
-            if line.contains("**") {
-                result.append(highlightBold(fullLine, baseAttrs: baseAttrs, boldFont: monoBold))
-                continue
-            }
-
+            // Strip heading markers, render as bold
             if line.hasPrefix("# ") || line.hasPrefix("## ") || line.hasPrefix("### ") {
-                let attrs = baseAttrs.merging([
-                    .foregroundColor: Self.pink,
-                    .font: monoBold
-                ]) { _, new in new }
-                result.append(NSAttributedString(string: fullLine, attributes: attrs))
+                let stripped = line.replacingOccurrences(of: #"^#{1,3} "#, with: "", options: .regularExpression)
+                let attrs = baseAttrs.merging([.font: sfBold]) { _, new in new }
+                result.append(NSAttributedString(string: stripped + suffix, attributes: attrs))
                 continue
             }
 
+            // Strip **bold** markers, render as semibold inline
+            if line.contains("**") {
+                let parts = line.components(separatedBy: "**")
+                for (j, part) in parts.enumerated() {
+                    if j % 2 == 1 {
+                        let attrs = baseAttrs.merging([.font: sfBold]) { _, new in new }
+                        result.append(NSAttributedString(string: part, attributes: attrs))
+                    } else {
+                        result.append(NSAttributedString(string: part, attributes: baseAttrs))
+                    }
+                }
+                result.append(NSAttributedString(string: suffix, attributes: baseAttrs))
+                continue
+            }
+
+            // Strip `inline code` backticks, render in mono
+            if line.contains("`") {
+                let parts = line.components(separatedBy: "`")
+                for (j, part) in parts.enumerated() {
+                    if j % 2 == 1 {
+                        let attrs = baseAttrs.merging([.font: mono, .foregroundColor: Self.green]) { _, new in new }
+                        result.append(NSAttributedString(string: part, attributes: attrs))
+                    } else {
+                        result.append(NSAttributedString(string: part, attributes: baseAttrs))
+                    }
+                }
+                result.append(NSAttributedString(string: suffix, attributes: baseAttrs))
+                continue
+            }
+
+            // Bullets — keep the marker but tint it
             if line.hasPrefix("- ") || line.hasPrefix("* ") || line.hasPrefix("• ") {
-                let bullet = String(line.prefix(2))
-                let rest = String(line.dropFirst(2)) + suffix
                 let bulletAttrs = baseAttrs.merging([.foregroundColor: Self.cyan]) { _, new in new }
-                result.append(NSAttributedString(string: bullet, attributes: bulletAttrs))
-                result.append(NSAttributedString(string: rest, attributes: baseAttrs))
+                result.append(NSAttributedString(string: "· ", attributes: bulletAttrs))
+                result.append(NSAttributedString(string: String(line.dropFirst(2)) + suffix, attributes: baseAttrs))
                 continue
             }
 
+            // Numbered lists
             if let range = line.range(of: #"^\d+[\.\)] "#, options: .regularExpression) {
                 let num = String(line[range])
                 let rest = String(line[range.upperBound...]) + suffix
@@ -303,7 +325,7 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
                 continue
             }
 
-            result.append(NSAttributedString(string: fullLine, attributes: baseAttrs))
+            result.append(NSAttributedString(string: line + suffix, attributes: baseAttrs))
         }
 
         return result
@@ -397,34 +419,4 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         return result
     }
 
-    private func highlightInlineCode(_ line: String, baseAttrs: [NSAttributedString.Key: Any], font: NSFont) -> NSAttributedString {
-        let result = NSMutableAttributedString()
-        let parts = line.components(separatedBy: "`")
-        for (i, part) in parts.enumerated() {
-            if i % 2 == 1 {
-                let attrs = baseAttrs.merging([.foregroundColor: Self.green]) { _, new in new }
-                result.append(NSAttributedString(string: part, attributes: attrs))
-            } else {
-                result.append(NSAttributedString(string: part, attributes: baseAttrs))
-            }
-        }
-        return result
-    }
-
-    private func highlightBold(_ line: String, baseAttrs: [NSAttributedString.Key: Any], boldFont: NSFont) -> NSAttributedString {
-        let result = NSMutableAttributedString()
-        let parts = line.components(separatedBy: "**")
-        for (i, part) in parts.enumerated() {
-            if i % 2 == 1 {
-                let attrs = baseAttrs.merging([
-                    .foregroundColor: Self.orange,
-                    .font: boldFont
-                ]) { _, new in new }
-                result.append(NSAttributedString(string: part, attributes: attrs))
-            } else {
-                result.append(NSAttributedString(string: part, attributes: baseAttrs))
-            }
-        }
-        return result
-    }
 }
