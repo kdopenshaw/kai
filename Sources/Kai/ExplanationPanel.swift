@@ -10,6 +10,10 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
     /// Called when user submits a follow-up question
     var onFollowUp: ((String) -> Void)?
 
+    // Reading cursor
+    private var readingLine: Int = 0
+    private static let cursorBg = NSColor(red: 0.514, green: 0.753, blue: 0.404, alpha: 0.25)
+
     // Xcode Dark palette
     private static let bg        = NSColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 0.45)
     private static let fg        = NSColor(red: 0.871, green: 0.871, blue: 0.871, alpha: 1.0)
@@ -142,12 +146,22 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         visualEffect.addSubview(inputContainer)
         panel.contentView = visualEffect
 
-        // Key handling — Escape closes panel
+        // Key handling — Escape closes, arrows move reading cursor
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.panel.isVisible else { return event }
 
             if event.keyCode == 53 {
                 self.close()
+                return nil
+            }
+
+            // Down arrow (keyCode 125) or Up arrow (keyCode 126)
+            if event.keyCode == 125 {
+                self.moveReadingCursor(by: 1)
+                return nil
+            }
+            if event.keyCode == 126 {
+                self.moveReadingCursor(by: -1)
                 return nil
             }
 
@@ -159,6 +173,9 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         textView.textStorage?.setAttributedString(styledText(text))
         inputField.stringValue = ""
         inputContainer.alphaValue = 0.5
+        readingLine = 0
+        applyReadingCursor()
+        textView.scrollToBeginningOfDocument(nil)
         panel.orderFront(nil)
         // Focus the input field immediately so user can just start typing
         panel.makeFirstResponder(inputField)
@@ -166,6 +183,7 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
 
     func update(text: String) {
         textView.textStorage?.setAttributedString(styledText(text))
+        applyReadingCursor()
     }
 
     func appendToThread(question: String, answer: String) {
@@ -190,12 +208,22 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         current.append(qLabel)
         current.append(qText)
 
-        // Add answer
+        // Record where the answer starts, then append it
+        let answerStartOffset = current.length
         current.append(styledText(answer))
 
         textView.textStorage?.setAttributedString(current)
-        // Scroll to bottom
-        textView.scrollToEndOfDocument(nil)
+
+        // Snap reading cursor to the first content line of the new answer
+        let lines = contentLineRanges()
+        for (idx, range) in lines.enumerated() {
+            if range.location >= answerStartOffset {
+                readingLine = idx
+                break
+            }
+        }
+        applyReadingCursor()
+        scrollReadingLineIntoView()
     }
 
     func close() {
@@ -232,6 +260,67 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
             return true
         }
         return false
+    }
+
+    // MARK: - Reading cursor
+
+    /// Returns ranges of non-empty logical lines (paragraphs), skipping blank lines.
+    private func contentLineRanges() -> [NSRange] {
+        guard let storage = textView.textStorage else { return [] }
+        let string = storage.string as NSString
+        var ranges: [NSRange] = []
+        var start = 0
+        while start < string.length {
+            let lineRange = string.lineRange(for: NSRange(location: start, length: 0))
+            // Skip blank lines (only whitespace/newline)
+            let content = string.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+            if !content.isEmpty {
+                ranges.append(lineRange)
+            }
+            start = NSMaxRange(lineRange)
+        }
+        return ranges
+    }
+
+    private func applyReadingCursor() {
+        guard let lm = textView.layoutManager, textView.textContainer != nil,
+              let storage = textView.textStorage else { return }
+        // Clear previous cursor highlight
+        lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: NSRange(location: 0, length: storage.length))
+
+        let lines = contentLineRanges()
+        guard readingLine >= 0, readingLine < lines.count else { return }
+        let paraRange = lines[readingLine]
+
+        // Highlight first character of each visual (wrapped) line within this paragraph
+        let glyphRange = lm.glyphRange(forCharacterRange: paraRange, actualCharacterRange: nil)
+        lm.enumerateLineFragments(forGlyphRange: glyphRange) { _, _, _, fragGlyphRange, _ in
+            let charRange = lm.characterRange(forGlyphRange: fragGlyphRange, actualGlyphRange: nil)
+            if charRange.length > 0 {
+                let firstChar = NSRange(location: charRange.location, length: 1)
+                lm.addTemporaryAttribute(.backgroundColor, value: Self.cursorBg, forCharacterRange: firstChar)
+            }
+        }
+    }
+
+    private func moveReadingCursor(by delta: Int) {
+        let lines = contentLineRanges()
+        guard !lines.isEmpty else { return }
+        let newLine = max(0, min(lines.count - 1, readingLine + delta))
+        guard newLine != readingLine else { return }
+        readingLine = newLine
+        applyReadingCursor()
+        scrollReadingLineIntoView()
+    }
+
+    private func scrollReadingLineIntoView() {
+        let lines = contentLineRanges()
+        guard readingLine >= 0, readingLine < lines.count,
+              let lm = textView.layoutManager, let tc = textView.textContainer else { return }
+        let glyphRange = lm.glyphRange(forCharacterRange: lines[readingLine], actualCharacterRange: nil)
+        let lineRect = lm.boundingRect(forGlyphRange: glyphRange, in: tc)
+        let scrollRect = lineRect.offsetBy(dx: textView.textContainerInset.width, dy: textView.textContainerInset.height)
+        textView.scrollToVisible(scrollRect)
     }
 
     // MARK: - Styling
