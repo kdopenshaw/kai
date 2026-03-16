@@ -32,8 +32,8 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
     override init() {
         super.init()
 
-        let width: CGFloat = 420
-        let height: CGFloat = 220
+        let width: CGFloat = 462
+        let height: CGFloat = 242
 
         // Position near mouse, clamped to screen
         let mouse = NSEvent.mouseLocation
@@ -155,6 +155,23 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
                 return nil
             }
 
+            // Cmd+C — copy selected text
+            if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "c" {
+                if let selectedRange = self.textView.selectedRanges.first as? NSRange,
+                   selectedRange.length > 0,
+                   let text = self.textView.textStorage?.attributedSubstring(from: selectedRange).string {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(text, forType: .string)
+                }
+                return nil
+            }
+
+            // Cmd+A — select all text
+            if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "a" {
+                self.textView.selectAll(nil)
+                return nil
+            }
+
             // Down arrow (keyCode 125) or Up arrow (keyCode 126)
             if event.keyCode == 125 {
                 self.moveReadingCursor(by: 1)
@@ -186,45 +203,9 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         applyReadingCursor()
     }
 
-    func appendToThread(question: String, answer: String) {
-        let sf = NSFont.systemFont(ofSize: 12.5, weight: .regular)
-        let sfBold = NSFont.systemFont(ofSize: 12.5, weight: .semibold)
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.lineSpacing = 1
-        paragraphStyle.paragraphSpacing = 2
-
-        let current = NSMutableAttributedString(attributedString: textView.attributedString())
-
-        // Add separator + question
-        let separator = NSAttributedString(string: "\n\n", attributes: [.font: sf])
-        let qLabel = NSAttributedString(string: "▶ ", attributes: [
-            .foregroundColor: Self.cyan, .font: sf, .paragraphStyle: paragraphStyle
-        ])
-        let qText = NSAttributedString(string: question + "\n\n", attributes: [
-            .foregroundColor: Self.fg, .font: sfBold, .paragraphStyle: paragraphStyle
-        ])
-
-        current.append(separator)
-        current.append(qLabel)
-        current.append(qText)
-
-        // Record where the answer starts, then append it
-        let answerStartOffset = current.length
-        current.append(styledText(answer))
-
-        textView.textStorage?.setAttributedString(current)
-
-        // Snap reading cursor to the first content line of the new answer
-        let lines = contentLineRanges()
-        for (idx, range) in lines.enumerated() {
-            if range.location >= answerStartOffset {
-                readingLine = idx
-                break
-            }
-        }
-        applyReadingCursor()
-        scrollReadingLineIntoView()
-    }
+    // func appendToThread(question: String, answer: String) {
+    //     — threading disabled: only the most recent Q&A is shown via show()
+    // }
 
     func close() {
         panel.orderOut(nil)
