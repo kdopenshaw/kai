@@ -150,12 +150,20 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.panel.isVisible else { return event }
 
+            // Let all keys pass through to the input field when it's focused
+            let inputFocused = self.panel.firstResponder is NSTextView &&
+                self.panel.firstResponder != self.textView &&
+                self.inputField.currentEditor() != nil
+            if inputFocused && event.keyCode != 53 {
+                return event
+            }
+
             if event.keyCode == 53 {
                 self.close()
                 return nil
             }
 
-            // Cmd+C — copy selected text
+            // Cmd+C — copy selected text from the read-only text view
             if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "c" {
                 if let selectedRange = self.textView.selectedRanges.first as? NSRange,
                    selectedRange.length > 0,
