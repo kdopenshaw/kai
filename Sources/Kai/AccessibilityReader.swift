@@ -4,13 +4,18 @@ import Foundation
 
 final class AccessibilityReader {
     func getSelectedText() -> String? {
-        // First try the Accessibility API (works in native apps)
+        let frontApp = NSWorkspace.shared.frontmostApplication?.localizedName ?? "<unknown>"
+        NSLog("[Kai] Frontmost app: \(frontApp)")
+
         if let text = getSelectedTextViaAX(), !text.isEmpty {
+            NSLog("[Kai] AX API returned \(text.count) chars")
             return text
         }
+        NSLog("[Kai] AX API returned nil/empty — falling back to clipboard")
 
-        // Fallback: simulate Cmd+C and read from clipboard (works in Chrome, etc.)
-        return getSelectedTextViaClipboard()
+        let result = getSelectedTextViaClipboard()
+        NSLog("[Kai] Clipboard fallback returned \(result?.count ?? -1) chars")
+        return result
     }
 
     private func getSelectedTextViaAX() -> String? {
@@ -51,8 +56,13 @@ final class AccessibilityReader {
         keyDown?.post(tap: .cghidEventTap)
         keyUp?.post(tap: .cghidEventTap)
 
-        // Wait for the copy to complete
-        usleep(100_000) // 100ms
+        // Spin the runloop instead of blocking — our own CGEventTap callback
+        // runs on this thread, and blocking would stop it from forwarding the
+        // synthetic Cmd+C to the focused app.
+        let deadline = Date(timeIntervalSinceNow: 0.2)
+        while Date() < deadline && pasteboard.changeCount == oldChangeCount {
+            RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.01))
+        }
 
         // Check if clipboard changed
         guard pasteboard.changeCount != oldChangeCount else {

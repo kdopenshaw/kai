@@ -12,7 +12,7 @@ final class HotkeyManager {
     }
 
     func start() {
-        let mask: CGEventMask = 1 << CGEventType.flagsChanged.rawValue
+        let mask: CGEventMask = 1 << CGEventType.keyDown.rawValue
 
         // Prevent self from being captured as a raw pointer issue — use Unmanaged
         let refcon = Unmanaged.passUnretained(self).toOpaque()
@@ -33,26 +33,28 @@ final class HotkeyManager {
         let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        print("[Kai] Event tap created successfully")
+        NSLog("[Kai] Event tap created successfully")
     }
 
-    fileprivate func handleFlags(_ flags: CGEventFlags) {
-        let wanted: CGEventFlags = [.maskControl, .maskShift]
-        let unwanted: CGEventFlags = [.maskCommand, .maskAlternate]
-
-        let hasWanted = flags.contains(wanted)
-        let hasUnwanted = !flags.intersection(unwanted).isEmpty
-
-        print("[Kai] flags: \(flags.rawValue) hasWanted: \(hasWanted) hasUnwanted: \(hasUnwanted)")
-
-        guard hasWanted && !hasUnwanted else { return }
+    /// Returns true if the event should be consumed (not propagated to other apps).
+    fileprivate func handleKey(_ keyCode: Int64) -> Bool {
+        // F2 virtual key code
+        guard keyCode == 120 else { return false }
 
         let now = CFAbsoluteTimeGetCurrent()
-        guard now - lastFireTime >= debounceInterval else { return }
-        lastFireTime = now
+        if now - lastFireTime >= debounceInterval {
+            lastFireTime = now
+            NSLog("[Kai] Hotkey triggered!")
+            handler()
+        }
+        // Always consume F2 so no other app sees it
+        return true
+    }
 
-        print("[Kai] Hotkey triggered!")
-        handler()
+    fileprivate func reenableTap() {
+        guard let tap = eventTap else { return }
+        CGEvent.tapEnable(tap: tap, enable: true)
+        NSLog("[Kai] Event tap re-enabled")
     }
 }
 
@@ -64,13 +66,18 @@ private func hotkeyCallback(
 ) -> Unmanaged<CGEvent>? {
     guard let refcon else { return Unmanaged.passRetained(event) }
 
+    let manager = Unmanaged<HotkeyManager>.fromOpaque(refcon).takeUnretainedValue()
+
     if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-        // Re-enable the tap if macOS disables it
+        manager.reenableTap()
         return Unmanaged.passRetained(event)
     }
 
-    let manager = Unmanaged<HotkeyManager>.fromOpaque(refcon).takeUnretainedValue()
-    manager.handleFlags(event.flags)
+    let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+    if manager.handleKey(keyCode) {
+        // Consume the event — no other app should see F2
+        return nil
+    }
 
     return Unmanaged.passRetained(event)
 }

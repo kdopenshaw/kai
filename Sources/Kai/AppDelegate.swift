@@ -59,9 +59,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleHotkey() {
+        NSLog("[Kai] handleHotkey entered")
         let text = reader.getSelectedText()
-        print("[Kai] Selected text: \(text ?? "<nil>")")
-        guard let text, !text.isEmpty else { return }
+        NSLog("[Kai] Selected text length: \(text?.count ?? -1)")
+        guard let text, !text.isEmpty else {
+            NSLog("[Kai] No text selected — skipping")
+            return
+        }
 
         panel?.close()
         let p = ExplanationPanel()
@@ -71,7 +75,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.handleFollowUp(question: question, panel: p)
         }
 
-        p.show(text: "Thinking...")
+        p.showThinking()
 
         Task {
             let explanation = await self.ollama.explain(text)
@@ -82,7 +86,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleFollowUp(question: String, panel: ExplanationPanel) {
-        panel.show(text: "Thinking...")
+        panel.showThinking()
 
         Task {
             let answer = await self.ollama.followUp(question)

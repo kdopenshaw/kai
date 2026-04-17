@@ -7,25 +7,27 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
     private var inputField: NSTextField!
     private var inputContainer: NSView!
     private var visualEffect: NSVisualEffectView!
+    private var spinner: HelixSpinner!
     /// Called when user submits a follow-up question
     var onFollowUp: ((String) -> Void)?
 
     // Reading cursor
     private var readingLine: Int = 0
-    private static let cursorBg = NSColor(red: 0.514, green: 0.753, blue: 0.404, alpha: 0.25)
+    private static let cursorBg = NSColor(white: 1.0, alpha: 0.12)
 
-    // Xcode Dark palette
-    private static let bg        = NSColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 0.45)
-    private static let fg        = NSColor(red: 0.871, green: 0.871, blue: 0.871, alpha: 1.0)
-    private static let comment   = NSColor(red: 0.424, green: 0.475, blue: 0.529, alpha: 1.0)
+    // Blackboard-style dark background with Xcode Dark syntax palette
+    private static let bg        = NSColor(calibratedRed: 0.05, green: 0.07, blue: 0.10, alpha: 0.15)
+    private static let fg        = NSColor(white: 0.90, alpha: 1.0)
+    private static let comment   = NSColor(white: 0.48, alpha: 1.0)
+    private static let dim       = NSColor(white: 0.62, alpha: 1.0)
     private static let cyan      = NSColor(red: 0.404, green: 0.718, blue: 0.812, alpha: 1.0)
     private static let green     = NSColor(red: 0.514, green: 0.753, blue: 0.404, alpha: 1.0)
     private static let orange    = NSColor(red: 0.835, green: 0.557, blue: 0.337, alpha: 1.0)
     private static let pink      = NSColor(red: 0.812, green: 0.400, blue: 0.600, alpha: 1.0)
     private static let purple    = NSColor(red: 0.631, green: 0.467, blue: 0.812, alpha: 1.0)
     private static let yellow    = NSColor(red: 0.843, green: 0.753, blue: 0.384, alpha: 1.0)
-    private static let selection = NSColor(red: 0.200, green: 0.337, blue: 0.537, alpha: 1.0)
-    private static let inputBg   = NSColor(red: 0.10, green: 0.10, blue: 0.12, alpha: 0.35)
+    private static let selection = NSColor.white.withAlphaComponent(0.25)
+    private static let inputBg   = NSColor(white: 0.0, alpha: 0.18)
 
     private static let inputHeight: CGFloat = 36
 
@@ -67,7 +69,7 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
 
         // Blur behind the transparent window
         visualEffect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: width, height: height))
-        visualEffect.material = .hudWindow
+        visualEffect.material = .underWindowBackground
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
         visualEffect.autoresizingMask = [.width, .height]
@@ -93,7 +95,7 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         textView.isEditable = false
         textView.isSelectable = true
         textView.textContainerInset = NSSize(width: 12, height: 12)
-        textView.font = NSFont.systemFont(ofSize: 12.5, weight: .regular)
+        textView.font = NSFont.monospacedSystemFont(ofSize: 12.0, weight: .regular)
         textView.textColor = Self.fg
         textView.backgroundColor = .clear
         textView.drawsBackground = false
@@ -126,13 +128,13 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         inputField = NSTextField(frame: NSRect(x: 10, y: 6, width: width - 20, height: 24))
         inputField.isBordered = false
         inputField.focusRingType = .none
-        inputField.font = NSFont.systemFont(ofSize: 12.5, weight: .regular)
+        inputField.font = NSFont.monospacedSystemFont(ofSize: 12.0, weight: .regular)
         inputField.textColor = Self.fg
         inputField.backgroundColor = .clear
         inputField.drawsBackground = false
         inputField.placeholderAttributedString = NSAttributedString(
-            string: "Ask a follow-up…",
-            attributes: [.foregroundColor: Self.comment, .font: NSFont.systemFont(ofSize: 12.5, weight: .regular)]
+            string: "> ask a follow-up…",
+            attributes: [.foregroundColor: Self.comment, .font: NSFont.monospacedSystemFont(ofSize: 12.0, weight: .regular)]
         )
         inputField.delegate = self
         inputField.autoresizingMask = [.width]
@@ -144,6 +146,29 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         inputContainer.frame = NSRect(x: 0, y: 0, width: width, height: Self.inputHeight)
 
         visualEffect.addSubview(inputContainer)
+
+        // Helix spinner — sits at top-left of text area, acts as Kai's mark.
+        // Animates while thinking, freezes in place when response arrives.
+        let spinnerW: CGFloat = 45
+        let spinnerH: CGFloat = 27
+        let spinnerPadX: CGFloat = 12
+        let spinnerTopMargin: CGFloat = 14
+        let spinnerBottomGap: CGFloat = 2
+        spinner = HelixSpinner(frame: NSRect(
+            x: spinnerPadX,
+            y: scrollView.frame.maxY - spinnerH - spinnerTopMargin,
+            width: spinnerW,
+            height: spinnerH
+        ))
+        spinner.autoresizingMask = [.minYMargin]
+        visualEffect.addSubview(spinner)
+
+        // Push the text down so it starts below the spinner
+        textView.textContainerInset = NSSize(
+            width: 12,
+            height: spinnerTopMargin + spinnerH + spinnerBottomGap
+        )
+
         panel.contentView = visualEffect
 
         // Key handling — Escape closes, arrows move reading cursor
@@ -195,20 +220,56 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
     }
 
     func show(text: String) {
+        spinner.stop()
         textView.textStorage?.setAttributedString(styledText(text))
         inputField.stringValue = ""
         inputContainer.alphaValue = 0.5
         readingLine = 0
         applyReadingCursor()
+        resizeToFitContent()
         textView.scrollToBeginningOfDocument(nil)
         panel.orderFront(nil)
         // Focus the input field immediately so user can just start typing
         panel.makeFirstResponder(inputField)
     }
 
+    func showThinking() {
+        textView.textStorage?.setAttributedString(NSAttributedString(string: ""))
+        inputField.stringValue = ""
+        inputContainer.alphaValue = 0.5
+        spinner.start()
+        panel.orderFront(nil)
+        panel.makeFirstResponder(inputField)
+    }
+
     func update(text: String) {
+        spinner.stop()
         textView.textStorage?.setAttributedString(styledText(text))
         applyReadingCursor()
+        resizeToFitContent()
+    }
+
+    private func resizeToFitContent() {
+        guard let lm = textView.layoutManager, let tc = textView.textContainer else { return }
+        lm.ensureLayout(for: tc)
+        let textHeight = ceil(lm.usedRect(for: tc).height)
+
+        let insetV = textView.textContainerInset.height   // same top & bottom
+        let desired = textHeight + insetV * 2 + Self.inputHeight + 4
+
+        let screen = NSScreen.main?.visibleFrame ?? panel.frame
+        let maxH: CGFloat = screen.height - 24
+        let minH: CGFloat = 160
+        let newH = min(max(desired, minH), maxH)
+
+        var f = panel.frame
+        let delta = newH - f.height
+        guard abs(delta) > 0.5 else { return }
+        // Grow/shrink while keeping the top edge anchored
+        f.origin.y -= delta
+        f.size.height = newH
+        f.origin.y = max(f.origin.y, screen.minY + 8)
+        panel.setFrame(f, display: true, animate: false)
     }
 
     // func appendToThread(question: String, answer: String) {
@@ -274,21 +335,24 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
     private func applyReadingCursor() {
         guard let lm = textView.layoutManager, textView.textContainer != nil,
               let storage = textView.textStorage else { return }
-        // Clear previous cursor highlight
-        lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: NSRange(location: 0, length: storage.length))
+        let full = NSRange(location: 0, length: storage.length)
+        lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: full)
+        lm.removeTemporaryAttribute(.foregroundColor, forCharacterRange: full)
 
         let lines = contentLineRanges()
         guard readingLine >= 0, readingLine < lines.count else { return }
-        let paraRange = lines[readingLine]
+        let active = lines[readingLine]
 
-        // Highlight first character of each visual (wrapped) line within this paragraph
-        let glyphRange = lm.glyphRange(forCharacterRange: paraRange, actualCharacterRange: nil)
-        lm.enumerateLineFragments(forGlyphRange: glyphRange) { _, _, _, fragGlyphRange, _ in
-            let charRange = lm.characterRange(forGlyphRange: fragGlyphRange, actualGlyphRange: nil)
-            if charRange.length > 0 {
-                let firstChar = NSRange(location: charRange.location, length: 1)
-                lm.addTemporaryAttribute(.backgroundColor, value: Self.cursorBg, forCharacterRange: firstChar)
-            }
+        // Dim everything outside the active paragraph
+        let dim = Self.comment
+        if active.location > 0 {
+            lm.addTemporaryAttribute(.foregroundColor, value: dim,
+                forCharacterRange: NSRange(location: 0, length: active.location))
+        }
+        let activeEnd = NSMaxRange(active)
+        if activeEnd < storage.length {
+            lm.addTemporaryAttribute(.foregroundColor, value: dim,
+                forCharacterRange: NSRange(location: activeEnd, length: storage.length - activeEnd))
         }
     }
 
@@ -315,10 +379,10 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
     // MARK: - Styling
 
     private func styledText(_ text: String) -> NSAttributedString {
-        let sf = NSFont.systemFont(ofSize: 12.5, weight: .regular)
-        let sfBold = NSFont.systemFont(ofSize: 12.5, weight: .semibold)
-        let mono = NSFont.monospacedSystemFont(ofSize: 11.5, weight: .regular)
-        let monoBold = NSFont.monospacedSystemFont(ofSize: 11.5, weight: .bold)
+        let sf = NSFont.monospacedSystemFont(ofSize: 12.0, weight: .regular)
+        let sfBold = NSFont.monospacedSystemFont(ofSize: 12.0, weight: .bold)
+        let mono = NSFont.monospacedSystemFont(ofSize: 12.0, weight: .regular)
+        let monoBold = NSFont.monospacedSystemFont(ofSize: 12.0, weight: .bold)
         let result = NSMutableAttributedString()
 
         let paragraphStyle = NSMutableParagraphStyle()
@@ -385,9 +449,9 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
                 continue
             }
 
-            // Bullets — keep the marker but tint it
+            // Bullets — keep the marker but dim it
             if line.hasPrefix("- ") || line.hasPrefix("* ") || line.hasPrefix("• ") {
-                let bulletAttrs = baseAttrs.merging([.foregroundColor: Self.cyan]) { _, new in new }
+                let bulletAttrs = baseAttrs.merging([.foregroundColor: Self.dim]) { _, new in new }
                 result.append(NSAttributedString(string: "· ", attributes: bulletAttrs))
                 result.append(NSAttributedString(string: String(line.dropFirst(2)) + suffix, attributes: baseAttrs))
                 continue
@@ -397,7 +461,7 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
             if let range = line.range(of: #"^\d+[\.\)] "#, options: .regularExpression) {
                 let num = String(line[range])
                 let rest = String(line[range.upperBound...]) + suffix
-                let numAttrs = baseAttrs.merging([.foregroundColor: Self.cyan]) { _, new in new }
+                let numAttrs = baseAttrs.merging([.foregroundColor: Self.dim]) { _, new in new }
                 result.append(NSAttributedString(string: num, attributes: numAttrs))
                 result.append(NSAttributedString(string: rest, attributes: baseAttrs))
                 continue
