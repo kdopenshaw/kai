@@ -7,6 +7,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let reader = AccessibilityReader()
     private let ollama = OllamaClient()
     private var panel: ExplanationPanel?
+    private var needsInitialPrompt = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         ensureOllamaRunning()
@@ -60,36 +61,64 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handleHotkey() {
         NSLog("[Kai] handleHotkey entered")
-        let text = reader.getSelectedText()
-        NSLog("[Kai] Selected text length: \(text?.count ?? -1)")
-        guard let text, !text.isEmpty else {
-            NSLog("[Kai] No text selected — skipping")
+
+        // Toggle: if panel is visible, pressing F2 again closes it.
+        if let existing = panel, existing.isVisible {
+            existing.close()
             return
         }
 
-        panel?.close()
+        let text = reader.getSelectedText()
+        NSLog("[Kai] Selected text length: \(text?.count ?? -1)")
+
+        // New selection always starts a fresh conversation.
+        if let text, !text.isEmpty {
+            panel?.close()
+            let p = ExplanationPanel()
+            panel = p
+            p.onFollowUp = { [weak self] question in
+                self?.handleSubmit(question: question, panel: p)
+            }
+            needsInitialPrompt = false
+            p.showThinking()
+            Task {
+                let explanation = await self.ollama.explain(text)
+                await MainActor.run {
+                    p.update(text: explanation)
+                }
+            }
+            return
+        }
+
+        // No new selection. If we have a prior (hidden) panel, reopen it with
+        // conversation state intact.
+        if let existing = panel {
+            existing.reopen()
+            return
+        }
+
+        // First-time open with no selection — empty panel, cursor focused.
         let p = ExplanationPanel()
         panel = p
-
         p.onFollowUp = { [weak self] question in
-            self?.handleFollowUp(question: question, panel: p)
+            self?.handleSubmit(question: question, panel: p)
         }
-
-        p.showThinking()
-
-        Task {
-            let explanation = await self.ollama.explain(text)
-            await MainActor.run {
-                p.update(text: explanation)
-            }
-        }
+        needsInitialPrompt = true
+        p.showEmpty()
     }
 
-    private func handleFollowUp(question: String, panel: ExplanationPanel) {
-        panel.showThinking()
+    private func handleSubmit(question: String, panel: ExplanationPanel) {
+        let firstMessage = needsInitialPrompt
+        needsInitialPrompt = false
+        panel.showThinking(question: question)
 
         Task {
-            let answer = await self.ollama.followUp(question)
+            let answer: String
+            if firstMessage {
+                answer = await self.ollama.explain(question)
+            } else {
+                answer = await self.ollama.followUp(question)
+            }
             await MainActor.run {
                 panel.show(text: answer)
             }

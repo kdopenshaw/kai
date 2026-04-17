@@ -8,6 +8,7 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
     private var inputContainer: NSView!
     private var visualEffect: NSVisualEffectView!
     private var spinner: HelixSpinner!
+    private var currentQuestion: String?
     /// Called when user submits a follow-up question
     var onFollowUp: ((String) -> Void)?
 
@@ -215,13 +216,28 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
                 return nil
             }
 
+            // Typed printable character with input unfocused — redirect to input.
+            if !inputFocused,
+               !event.modifierFlags.contains(.command),
+               !event.modifierFlags.contains(.control),
+               let chars = event.characters, !chars.isEmpty,
+               chars.unicodeScalars.allSatisfy({ $0.value >= 32 && $0.value != 127 }) {
+                self.panel.makeFirstResponder(self.inputField)
+                self.inputField.currentEditor()?.insertText(chars)
+                self.inputContainer.alphaValue = 1.0
+                return nil
+            }
+
             return event
         }
     }
 
     func show(text: String) {
         spinner.stop()
-        textView.textStorage?.setAttributedString(styledText(text))
+        let combined = NSMutableAttributedString()
+        combined.append(questionPrefix())
+        combined.append(styledText(text))
+        textView.textStorage?.setAttributedString(combined)
         inputField.stringValue = ""
         inputContainer.alphaValue = 0.5
         readingLine = 0
@@ -229,12 +245,24 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         resizeToFitContent()
         textView.scrollToBeginningOfDocument(nil)
         panel.orderFront(nil)
-        // Focus the input field immediately so user can just start typing
+        // Unfocus the input so arrow keys drive the reading cursor.
+        // A printable keypress will refocus the input via the event monitor.
+        panel.makeFirstResponder(nil)
+    }
+
+    func showEmpty() {
+        spinner.stop()
+        currentQuestion = nil
+        textView.textStorage?.setAttributedString(NSAttributedString(string: ""))
+        inputField.stringValue = ""
+        inputContainer.alphaValue = 1.0
+        panel.makeKeyAndOrderFront(nil)
         panel.makeFirstResponder(inputField)
     }
 
-    func showThinking() {
-        textView.textStorage?.setAttributedString(NSAttributedString(string: ""))
+    func showThinking(question: String? = nil) {
+        currentQuestion = question
+        textView.textStorage?.setAttributedString(questionPrefix())
         inputField.stringValue = ""
         inputContainer.alphaValue = 0.5
         spinner.start()
@@ -244,9 +272,29 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
 
     func update(text: String) {
         spinner.stop()
-        textView.textStorage?.setAttributedString(styledText(text))
+        let combined = NSMutableAttributedString()
+        combined.append(questionPrefix())
+        combined.append(styledText(text))
+        textView.textStorage?.setAttributedString(combined)
+        readingLine = 0
         applyReadingCursor()
         resizeToFitContent()
+        // Unfocus input so arrows scroll paragraphs; typing refocuses it.
+        panel.makeFirstResponder(nil)
+    }
+
+    private func questionPrefix() -> NSAttributedString {
+        guard let q = currentQuestion?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !q.isEmpty else { return NSAttributedString() }
+        let font = NSFont.monospacedSystemFont(ofSize: 11.5, weight: .regular)
+        let para = NSMutableParagraphStyle()
+        para.paragraphSpacing = 8
+        para.lineSpacing = 1
+        return NSAttributedString(string: "> \(q)\n", attributes: [
+            .font: font,
+            .foregroundColor: Self.comment,
+            .paragraphStyle: para
+        ])
     }
 
     private func resizeToFitContent() {
@@ -277,7 +325,16 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
     // }
 
     func close() {
+        spinner.stop()
         panel.orderOut(nil)
+    }
+
+    var isVisible: Bool { panel.isVisible }
+
+    /// Re-show the panel without clearing any existing content or conversation state.
+    func reopen() {
+        panel.makeKeyAndOrderFront(nil)
+        panel.makeFirstResponder(inputField)
     }
 
     // MARK: - NSTextFieldDelegate
@@ -319,7 +376,8 @@ final class ExplanationPanel: NSObject, NSTextFieldDelegate {
         guard let storage = textView.textStorage else { return [] }
         let string = storage.string as NSString
         var ranges: [NSRange] = []
-        var start = 0
+        var start = questionPrefix().length
+        if start > string.length { start = 0 }
         while start < string.length {
             let lineRange = string.lineRange(for: NSRange(location: start, length: 0))
             // Skip blank lines (only whitespace/newline)

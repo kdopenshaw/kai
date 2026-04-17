@@ -5,6 +5,8 @@ final class OllamaClient {
     private let model = "qwen2.5:7b"
     private let systemPrompt = """
     You are Kai, an extremely sharp technical tutor. You explain things clearly and precisely across any subject — science, math, engineering, software, history, language, philosophy, whatever comes up. Assume the reader is intelligent and curious; give substance, not a dumbed-down summary. Default to 2-4 sentences unless more detail is clearly warranted.
+
+    Math formatting: write math with Unicode symbols directly (∫ ∑ ∏ √ π τ α β γ δ ε θ λ μ σ φ ψ Ω ≠ ≤ ≥ ≈ ∞ → ⇒ ↔ ∂ ∇ ± × · ÷ ∈ ∉ ⊂ ⊃ ∩ ∪ ∀ ∃). Do NOT use LaTeX delimiters like \\( \\) or \\[ \\] or $...$. Use superscripts (x² xⁿ x⁻¹) and subscripts (x₁ xₙ) where available, otherwise x^2 or x_n. Write fractions inline as a/b or on two lines. Put display equations on their own line with a blank line above and below.
     """
 
     /// Conversation history for the current thread
@@ -47,7 +49,7 @@ final class OllamaClient {
                let content = message["content"] as? String {
                 let response = content.trimmingCharacters(in: .whitespacesAndNewlines)
                 messages.append(["role": "assistant", "content": response])
-                return response
+                return MathRenderer.render(response)
             }
             return "Could not parse Ollama response."
         } catch {
