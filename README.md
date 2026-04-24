@@ -1,11 +1,11 @@
 # Kai — macOS Highlight Explainer
 
-Menu bar app that explains highlighted text using a local LLM. Select text in any app, press **Ctrl+Shift**, and get a concise explanation in a floating panel.
+Menu bar app that explains highlighted text using a local LLM. Select text in any app, press **F2**, and get a concise explanation in a floating panel.
 
 ## How it works
 
 1. Reads selected text via macOS Accessibility APIs (clipboard fallback for Chrome/Electron apps)
-2. Sends it to a local [Ollama](https://ollama.com) instance (`llama3.2:3b`)
+2. Sends it to a local [Ollama](https://ollama.com) instance (`qwen2.5:7b`)
 3. Shows the explanation in a floating panel near your cursor
 
 ## Setup
@@ -14,7 +14,7 @@ Menu bar app that explains highlighted text using a local LLM. Select text in an
 # Install Ollama and pull the model
 brew install ollama
 brew services start ollama
-ollama pull llama3.2:3b
+ollama pull qwen2.5:7b
 
 # Install Swift (if not already available)
 curl -O https://download.swift.org/swiftly/darwin/swiftly.pkg && \
@@ -50,11 +50,11 @@ kai
 
 ## Usage
 
-- **Ctrl+Shift** — explain highlighted text
+- **F2** — explain highlighted text
 - **Escape** — dismiss the panel
 - **Menu bar "K" → Quit** — exit Kai
 
 ## Requirements
 
 - macOS 14+
-- Ollama with `llama3.2:3b`
+- Ollama with `qwen2.5:7b`
