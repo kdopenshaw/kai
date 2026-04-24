@@ -8,32 +8,46 @@ Menu bar app that explains highlighted text using a local LLM. Select text in an
 2. Sends it to a local [Ollama](https://ollama.com) instance (`qwen2.5:7b`)
 3. Shows the explanation in a floating panel near your cursor
 
+## Requirements
+
+- macOS 14+
+- [Ollama](https://ollama.com) running locally
+- Swift toolchain (included with Xcode, or installable standalone)
+
 ## Setup
 
+### 1. Install Ollama and pull the model
+
 ```bash
-# Install Ollama and pull the model
 brew install ollama
 brew services start ollama
 ollama pull qwen2.5:7b
+```
 
-# Install Swift (if not already available)
+### 2. Install Swift (skip if you have Xcode)
+
+```bash
 curl -O https://download.swift.org/swiftly/darwin/swiftly.pkg && \
-installer -pkg swiftly.pkg -target CurrentUserHomeDirectory && \
-~/.swiftly/bin/swiftly init --quiet-shell-followup && \
-. "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
+  installer -pkg swiftly.pkg -target CurrentUserHomeDirectory && \
+  ~/.swiftly/bin/swiftly init --quiet-shell-followup && \
+  . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
+```
 
-# Build
-cd ~/dev/repos/kai
+### 3. Clone and build
+
+```bash
+git clone https://github.com/kdopenshaw/kai.git
+cd kai
 swift build
 ```
 
 ## Run
 
-### As an app (no terminal needed)
+### As an app
 
 ```bash
 ./build-app.sh
-cp -r Kai.app /Applications/Kai.app
+cp -r Kai.app /Applications/
 ```
 
 Then launch from Spotlight or Finder. Grant **Accessibility** and **Input Monitoring** permissions in System Settings → Privacy & Security.
@@ -41,11 +55,13 @@ Then launch from Spotlight or Finder. Grant **Accessibility** and **Input Monito
 ### From terminal
 
 ```bash
-# Add to ~/.zshrc:
-alias kai="~/dev/repos/kai/.build/debug/Kai"
+.build/debug/Kai
+```
 
-# Then just:
-kai
+Or add an alias for convenience:
+
+```bash
+echo 'alias kai="/path/to/kai/.build/debug/Kai"' >> ~/.zshrc
 ```
 
 ## Usage
@@ -53,8 +69,3 @@ kai
 - **F2** — explain highlighted text
 - **Escape** — dismiss the panel
 - **Menu bar "K" → Quit** — exit Kai
-
-## Requirements
-
-- macOS 14+
-- Ollama with `qwen2.5:7b`
